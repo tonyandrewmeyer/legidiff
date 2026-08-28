@@ -51,7 +51,7 @@ def build_corpus(
     state_path: Path | None = None,
     limit: int | None = None,
     recheck: bool = False,
-    log=print,
+    log=lambda message: print(message, flush=True),
 ) -> State:
     state = State(state_path or cache / "corpus.json")
     acts = [ref for ref in fetch.all_acts(cache=cache) if ref.kind in kinds]
