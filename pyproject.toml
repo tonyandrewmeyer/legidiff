@@ -1,0 +1,13 @@
+[project]
+name = "legidiff"
+version = "0.1.0"
+description = "Build a git history of New Zealand Acts from the official XML"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+legidiff = "legidiff.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
