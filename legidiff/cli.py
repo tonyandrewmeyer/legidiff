@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import build, fetch, render
+from . import build, corpus, fetch, render
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -33,6 +33,21 @@ def main(argv: list[str] | None = None) -> int:
     show_parser.add_argument("--file", help="one file from the version, e.g. index.md")
 
     subparsers.add_parser("acts", help="list every Act on the site")
+
+    corpus_parser = subparsers.add_parser("corpus", help="build every Act, resumably")
+    corpus_parser.add_argument("--repo", type=Path, default=Path("out/nz-acts"))
+    corpus_parser.add_argument(
+        "--kinds",
+        default="public",
+        help="comma-separated: public,local,private,imperial,provincial (or all)",
+    )
+    corpus_parser.add_argument("--limit", type=int, help="stop after N Acts")
+    corpus_parser.add_argument(
+        "--recheck", action="store_true", help="re-examine Acts already built"
+    )
+    corpus_parser.add_argument(
+        "--failures", action="store_true", help="list what failed and stop"
+    )
 
     args = parser.parse_args(argv)
 
@@ -62,6 +77,45 @@ def main(argv: list[str] | None = None) -> int:
         else:
             for name in document.files:
                 print(name)
+        return 0
+
+    if args.command == "corpus":
+        kinds = ("public", "local", "private", "imperial", "provincial")
+        if not args.failures:
+            wanted = kinds if args.kinds == "all" else tuple(args.kinds.split(","))
+            corpus.build_corpus(
+                args.repo,
+                kinds=wanted,
+                cache=args.cache,
+                limit=args.limit,
+                recheck=args.recheck,
+            )
+            return 0
+        state = corpus.State(args.cache / "corpus.json")
+        for name, record in sorted(state.failures.items()):
+            print(f"{name}\t{record['error']}")
+        print(f"{len(state.failures)} failed of {len(state.acts)} attempted", file=sys.stderr)
+        return 0
+
+    if args.command == "corpus":
+        if args.failures:
+            state = corpus.State(args.cache / "corpus.json")
+            for name, record in sorted(state.failures.items()):
+                print(f"{name}\t{record['error']}")
+            print(
+                f"{len(state.failures)} failed of {len(state.acts)} attempted",
+                file=sys.stderr,
+            )
+            return 0
+        all_kinds = ("public", "local", "private", "imperial", "provincial")
+        kinds = all_kinds if args.kinds == "all" else tuple(args.kinds.split(","))
+        corpus.build_corpus(
+            args.repo,
+            kinds=kinds,
+            cache=args.cache,
+            limit=args.limit,
+            recheck=args.recheck,
+        )
         return 0
 
     if args.command == "build":

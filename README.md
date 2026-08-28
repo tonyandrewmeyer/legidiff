@@ -40,6 +40,7 @@ a full-corpus run.  This prototype throttles itself to one request a second.
 | `versions ACT` | list an Act's version identifiers |
 | `show ACT DATE [--file index.md]` | render one version without committing |
 | `acts` | every Act on the site, from the sitemap |
+| `corpus` | build every Act, resumably |
 
 `ACT` is anything containing a reference, so `act/public/1961/43` or a URL
 copied from the browser.  `build` takes `--limit N`, `--since YYYY-MM-DD` and
@@ -48,6 +49,26 @@ copied from the browser.  `build` takes `--limit N`, `--since YYYY-MM-DD` and
 `build` is incremental: it reads the version ids back out of the commit
 messages it already wrote and commits only what is new, so a nightly run costs
 one version listing plus whatever changed.
+
+`corpus` is the outer loop over every Act, and keeps its own state in
+`cache/corpus.json`: which Acts are done, and what went wrong with the ones
+that are not.  A run that dies at Act 9,000 resumes where it stopped, and one
+bad Act never stops the run.
+
+```
+python3 -m legidiff corpus --kinds public          # 14,591 Acts, resumable
+python3 -m legidiff corpus --failures              # what did not build
+```
+
+## Tests
+
+```
+python3 -m unittest discover -s tests -t .
+```
+
+Stdlib `unittest`, no network: the fixtures are small Acts in the shape PCO's
+XML actually takes, one modern and one from the older DTD, and the build tests
+run real `git` against a temporary repository.
 
 ## Layout
 
