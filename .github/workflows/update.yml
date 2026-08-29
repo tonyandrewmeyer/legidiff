@@ -12,8 +12,12 @@
 name: update
 
 on:
-  schedule:
-    - cron: "0 19 * * *" # 07:00 NZST / 08:00 NZDT, after the overnight publish
+  # Disabled until legidiff reads from api.legislation.govt.nz: the website
+  # answers a datacentre IP with 202 and x-amzn-waf-action: challenge, so a
+  # scheduled run from a GitHub runner cannot fetch anything and would only
+  # fail every morning.  Restore this line once the API port lands.
+  # schedule:
+  #   - cron: "0 19 * * *" # 07:00 NZST / 08:00 NZDT, after the overnight publish
   workflow_dispatch:
     inputs:
       sweep:

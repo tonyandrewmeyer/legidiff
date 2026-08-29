@@ -88,18 +88,25 @@ what versions exist.
 
 ### Nightly, on GitHub Actions
 
-`.github/workflows/update.yml` runs `update` at 19:00 UTC (07:00 NZST) against
-the generated repository, which lives in its own repo — `vars.NZ_ACTS_REPO`,
-default `tonyandrewmeyer/nz-acts` — cloned, added to and pushed back.  It
-needs an `nz-acts` environment holding a `NZ_ACTS_TOKEN` secret with push
-rights to that repo.  Build state
-rides on an orphan `state` branch there, force-pushed as a single commit each
-night, so a runner that has no cache at all still knows what it has already
-built.
+`.github/workflows/update.yml` runs `update` against the generated
+repository, which lives in its own repo — `vars.NZ_ACTS_REPO`, default
+`tonyandrewmeyer/nz-acts` — cloned, added to and pushed back.  It needs an
+`nz-acts` environment holding a `NZ_ACTS_TOKEN` secret with push rights to
+that repo.  Build state rides on an orphan `state` branch there, force-pushed
+as a single commit each run, so a runner that has no cache at all still knows
+what it has already built.
 
 The initial corpus is *not* built in CI: the first 28,000 commits are pushed
 by hand from a machine that has the cache.  The workflow expects the target
 repository to exist and already hold that history.
+
+**The schedule is commented out, and the workflow cannot do useful work
+yet.**  `www.legislation.govt.nz` sits behind AWS WAF, which answers a
+datacentre IP with 202, an empty body and `x-amzn-waf-action: challenge` —
+every path, the XML included.  A home connection is fine; a GitHub runner is
+not.  `api.legislation.govt.nz` answers 401 rather than a challenge from the
+same runner, so the way out is to read from the API (which needs a key: email
+contact@pco.govt.nz), or to run the update somewhere with a residential IP.
 
 ## Tests
 
