@@ -99,10 +99,12 @@ exclusive lock (a `--sweep` can run for hours, and two runs would fight over
 the same repository) and logs to `~/.local/state/legidiff/update.log`.
 
 ```
-15 7 * * * /home/tameyer/non-canonical/legidiff/scripts/nightly-update.sh
+15 7 * * * /path/to/legidiff/scripts/nightly-update.sh
 ```
 
 Pushing relies on the `gh` credential helper, which works without a terminal.
+The script runs `python3.14` from `~/.local/bin` if it's there, and `python3`
+otherwise.
 
 ### Nightly, on GitHub Actions
 
@@ -135,6 +137,17 @@ python3 -m unittest discover -s tests -t .
 Stdlib `unittest`, and no network: the fixtures are small Acts in the shape
 PCO's XML actually takes, one modern and one from the older DTD, and the build
 tests run real `git` against a temporary repository.
+
+The code follows the [Ops style
+guide](https://github.com/canonical/operator/blob/main/STYLE.md), which is
+mostly enforced by `ruff check` and `ruff format` (configured in
+`pyproject.toml`), and the workflows are checked with
+[zizmor](https://docs.zizmor.sh/):
+
+```
+uv run --group lint -- ruff check . && uv run --group lint -- ruff format --check .
+uv run --group lint -- zizmor .github/workflows/
+```
 
 ## Layout
 

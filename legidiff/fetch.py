@@ -7,21 +7,21 @@ stay on the public paths and behave ourselves: one request a second, a real
 User-Agent, and every response cached so that a rebuild costs nothing.
 """
 
+import dataclasses
 import gzip
+import pathlib
 import re
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
-from pathlib import Path
 
-BASE = "https://www.legislation.govt.nz"
+BASE = 'https://www.legislation.govt.nz'
 USER_AGENT = (
-    "legidiff/0.1 (+https://github.com/; builds a git history of NZ legislation; "
-    "contact via repo issues)"
+    'legidiff/0.1 (+https://github.com/; builds a git history of NZ legislation; '
+    'contact via repo issues)'
 )
 
-DEFAULT_CACHE = Path("cache")
+DEFAULT_CACHE = pathlib.Path('cache')
 MIN_INTERVAL = 1.0  # seconds between requests
 MAX_RETRIES = 4
 
@@ -29,10 +29,10 @@ _last_request = 0.0
 
 
 class FetchError(RuntimeError):
-    pass
+    """The site did not give us what we asked for."""
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class ActRef:
     """A work, identified the way the website's URLs identify it."""
 
@@ -42,17 +42,19 @@ class ActRef:
 
     @property
     def path(self) -> str:
-        return f"/act/{self.kind}/{self.year}/{self.number}/en"
+        """The path this work lives under on the website."""
+        return f'/act/{self.kind}/{self.year}/{self.number}/en'
 
     @property
     def key(self) -> str:
-        return f"act-{self.kind}-{self.year}-{self.number}"
+        """The directory this work's responses are cached in."""
+        return f'act-{self.kind}-{self.year}-{self.number}'
 
     def __str__(self) -> str:
-        return f"act/{self.kind}/{self.year}/{self.number}"
+        return f'act/{self.kind}/{self.year}/{self.number}'
 
 
-_REF_RE = re.compile(r"/?act/(?P<kind>[a-z]+)/(?P<year>\d{4})/(?P<number>\d+)")
+_REF_RE = re.compile(r'/?act/(?P<kind>[a-z]+)/(?P<year>\d{4})/(?P<number>\d+)')
 
 
 def parse_ref(text: str) -> ActRef:
@@ -60,10 +62,10 @@ def parse_ref(text: str) -> ActRef:
     match = _REF_RE.search(text)
     if not match:
         raise ValueError(
-            f"cannot read an act reference out of {text!r}; "
-            "expected something like act/public/1961/43"
+            f'cannot read an act reference out of {text!r}; '
+            'expected something like act/public/1961/43'
         )
-    return ActRef(match["kind"], match["year"], match["number"])
+    return ActRef(match['kind'], match['year'], match['number'])
 
 
 def _throttle() -> None:
@@ -75,46 +77,47 @@ def _throttle() -> None:
 
 
 def _get(url: str) -> bytes:
-    request = urllib.request.Request(
+    # S310: the URL is always https, built from BASE.
+    request = urllib.request.Request(  # noqa: S310
         url,
         headers={
-            "User-Agent": USER_AGENT,
-            "Accept-Encoding": "gzip",
-            "Accept": "*/*",
+            'User-Agent': USER_AGENT,
+            'Accept-Encoding': 'gzip',
+            'Accept': '*/*',
         },
     )
     for attempt in range(MAX_RETRIES):
         _throttle()
         try:
-            with urllib.request.urlopen(request, timeout=120) as response:
+            # S310: every URL is built from BASE and a parsed reference.
+            with urllib.request.urlopen(request, timeout=120) as response:  # noqa: S310
                 body = response.read()
-                if response.headers.get("x-amzn-waf-action"):
+                if response.headers.get('x-amzn-waf-action'):
                     # The site is behind AWS WAF, which answers a client it
                     # does not like with 202 and an empty body rather than an
                     # error. Retrying doesn't help, because the challenge
                     # wants a browser. Datacentre IPs get this, home
                     # connections don't.
                     raise FetchError(
-                        f"blocked by a WAF challenge for {url}; "
-                        "this IP cannot fetch from the site"
+                        f'blocked by a WAF challenge for {url}; this IP cannot fetch from the site'
                     )
-                if response.headers.get("Content-Encoding") == "gzip":
+                if response.headers.get('Content-Encoding') == 'gzip':
                     body = gzip.decompress(body)
                 return body
         except urllib.error.HTTPError as error:
             if error.code in (429, 500, 502, 503, 504) and attempt < MAX_RETRIES - 1:
                 time.sleep(5 * 2**attempt)
                 continue
-            raise FetchError(f"{error.code} for {url}") from error
+            raise FetchError(f'{error.code} for {url}') from error
         except urllib.error.URLError as error:
             if attempt < MAX_RETRIES - 1:
                 time.sleep(5 * 2**attempt)
                 continue
-            raise FetchError(f"{error.reason} for {url}") from error
-    raise FetchError(f"gave up on {url}")
+            raise FetchError(f'{error.reason} for {url}') from error
+    raise FetchError(f'gave up on {url}')
 
 
-def fetch(url: str, cache_path: Path, *, refresh: bool = False) -> bytes:
+def fetch(url: str, cache_path: pathlib.Path, *, refresh: bool = False) -> bytes:
     """GET *url*, storing the body at *cache_path* and reusing it next time."""
     if cache_path.exists() and not refresh:
         return cache_path.read_bytes()
@@ -130,7 +133,7 @@ _VERSION_ID = re.compile(rb'id="version-(\d{4}-\d{2}-\d{2}[A-Z]?)"')
 
 
 def version_dates(
-    ref: ActRef, *, cache: Path = DEFAULT_CACHE, refresh: bool = False
+    ref: ActRef, *, cache: pathlib.Path = DEFAULT_CACHE, refresh: bool = False
 ) -> list[str]:
     """Every published version identifier for *ref*, oldest first.
 
@@ -138,13 +141,13 @@ def version_dates(
     page that goes stale, so ``--refresh`` re-reads it.
     """
     newest = latest_date(ref, cache=cache, refresh=refresh)
-    base = f"{BASE}{ref.path}/{newest}/versions/"
+    base = f'{BASE}{ref.path}/{newest}/versions/'
     versions: set[str] = set()
     page = 1
     while True:
-        url = base if page == 1 else f"{base}?page={page}"
+        url = base if page == 1 else f'{base}?page={page}'
         try:
-            body = fetch(url, cache / ref.key / f"versions-{page}.html", refresh=refresh)
+            body = fetch(url, cache / ref.key / f'versions-{page}.html', refresh=refresh)
         except FetchError:
             # Acts with a single version have no listing to show.
             break
@@ -157,7 +160,7 @@ def version_dates(
     # link, so make sure it is there.
     versions.add(newest)
     if not versions:
-        raise FetchError(f"no versions found for {ref}")
+        raise FetchError(f'no versions found for {ref}')
     return sorted(versions)
 
 
@@ -167,9 +170,7 @@ def version_dates(
 # landing page. The XML's own date attributes aren't reliable for this: a
 # version that shares its date with another carries a letter suffix
 # (2026-05-06B) that appears nowhere in the XML.
-_LATEST_ID = re.compile(
-    rb'href="/act/[a-z]+/\d{4}/\d+/en/(\d{4}-\d{2}-\d{2}[A-Z]?)\.pdf"'
-)
+_LATEST_ID = re.compile(rb'href="/act/[a-z]+/\d{4}/\d+/en/(\d{4}-\d{2}-\d{2}[A-Z]?)\.pdf"')
 
 _DATE_ATTRS = [
     re.compile(rb'date\.as\.at="(\d{4}-\d{2}-\d{2})"'),
@@ -178,13 +179,11 @@ _DATE_ATTRS = [
 ]
 
 
-def latest_date(
-    ref: ActRef, *, cache: Path = DEFAULT_CACHE, refresh: bool = False
-) -> str:
+def latest_date(ref: ActRef, *, cache: pathlib.Path = DEFAULT_CACHE, refresh: bool = False) -> str:
     """The identifier of the current version."""
     page = fetch(
-        f"{BASE}{ref.path}/latest/",
-        cache / ref.key / "latest.html",
+        f'{BASE}{ref.path}/latest/',
+        cache / ref.key / 'latest.html',
         refresh=refresh,
     )
     match = _LATEST_ID.search(page)
@@ -193,8 +192,8 @@ def latest_date(
 
     # No download link (some Acts have none): fall back to the XML's dates.
     body = fetch(
-        f"{BASE}{ref.path}/latest.xml",
-        cache / ref.key / "latest.xml",
+        f'{BASE}{ref.path}/latest.xml',
+        cache / ref.key / 'latest.xml',
         refresh=refresh,
     )
     header = body[:4096]
@@ -202,16 +201,16 @@ def latest_date(
         match = pattern.search(header)
         if match:
             return match[1].decode()
-    raise FetchError(f"no version date in latest.xml for {ref}")
+    raise FetchError(f'no version date in latest.xml for {ref}')
 
 
 def version_xml(
-    ref: ActRef, date: str, *, cache: Path = DEFAULT_CACHE, refresh: bool = False
+    ref: ActRef, date: str, *, cache: pathlib.Path = DEFAULT_CACHE, refresh: bool = False
 ) -> bytes:
     """The XML of one version. Cached forever: a published version never changes."""
     return fetch(
-        f"{BASE}{ref.path}/{date}.xml",
-        cache / ref.key / f"{date}.xml",
+        f'{BASE}{ref.path}/{date}.xml',
+        cache / ref.key / f'{date}.xml',
         refresh=refresh,
     )
 
@@ -221,26 +220,26 @@ def version_xml(
 # move when a new version is published, which makes it a cheap change filter:
 # one request tells us which of 14,000 Acts are worth asking about.
 _SITEMAP_ENTRY = re.compile(
-    rb"<loc>https://www\.legislation\.govt\.nz(/act/[a-z]+/\d{4}/\d+)/en/latest/</loc>"
-    rb"(?:<lastmod>(\d{4}-\d{2}-\d{2})</lastmod>)?"
+    rb'<loc>https://www\.legislation\.govt\.nz(/act/[a-z]+/\d{4}/\d+)/en/latest/</loc>'
+    rb'(?:<lastmod>(\d{4}-\d{2}-\d{2})</lastmod>)?'
 )
 
 
 def act_lastmods(
-    *, cache: Path = DEFAULT_CACHE, refresh: bool = False
+    *, cache: pathlib.Path = DEFAULT_CACHE, refresh: bool = False
 ) -> dict[ActRef, str | None]:
     """Every Act on the site and when its page last changed (~5 MB, one request)."""
-    body = fetch(f"{BASE}/sitemap.xml", cache / "sitemap.xml", refresh=refresh)
+    body = fetch(f'{BASE}/sitemap.xml', cache / 'sitemap.xml', refresh=refresh)
     found: dict[ActRef, str | None] = {}
     for match in _SITEMAP_ENTRY.finditer(body):
         lastmod = match[2].decode() if match[2] else None
         found[parse_ref(match[1].decode())] = lastmod
     if not found:
-        raise FetchError(f"no Acts in the sitemap ({len(body)} bytes)")
+        raise FetchError(f'no Acts in the sitemap ({len(body)} bytes)')
     return found
 
 
-def all_acts(*, cache: Path = DEFAULT_CACHE, refresh: bool = False) -> list[ActRef]:
+def all_acts(*, cache: pathlib.Path = DEFAULT_CACHE, refresh: bool = False) -> list[ActRef]:
     """Every Act on the site, from its sitemap."""
     refs = act_lastmods(cache=cache, refresh=refresh)
     return sorted(refs, key=lambda r: (r.kind, r.year, int(r.number)))

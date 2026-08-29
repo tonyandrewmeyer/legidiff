@@ -1,20 +1,20 @@
 """Build the git repository: one commit per published version of an Act."""
 
+import collections
+import datetime
+import pathlib
 import re
 import shutil
 import subprocess
-from collections import OrderedDict
-from datetime import date, datetime
-from pathlib import Path
 
 from . import fetch, render
 
 # git cannot represent commit dates before the Unix epoch, so versions older
 # than this get an epoch commit date; the true date stays in the message.
-EPOCH = date(1970, 1, 1)
+EPOCH = datetime.date(1970, 1, 1)
 
-AUTHOR_NAME = "New Zealand Parliamentary Counsel Office"
-AUTHOR_EMAIL = "noreply@pco.govt.nz"
+AUTHOR_NAME = 'New Zealand Parliamentary Counsel Office'
+AUTHOR_EMAIL = 'noreply@pco.govt.nz'
 
 REPO_README = """# NZ legislation, as a git history
 
@@ -35,34 +35,38 @@ remain the authoritative version.
 """
 
 
-def version_date(version: str) -> date:
+def version_date(version: str) -> datetime.date:
     """A version id is a date, sometimes with a disambiguating letter suffix."""
-    return datetime.fromisoformat(version[:10]).date()
+    return datetime.datetime.fromisoformat(version[:10]).date()
 
 
-def run(args: list[str], cwd: Path, env: dict[str, str] | None = None) -> str:
-    result = subprocess.run(
+def run(args: list[str], cwd: pathlib.Path, env: dict[str, str] | None = None) -> str:
+    """Run a command in *cwd* and return its standard output."""
+    # S603: the arguments are ours, and there is no shell involved.
+    result = subprocess.run(  # noqa: S603
         args, cwd=cwd, env=env, capture_output=True, text=True, check=True
     )
     return result.stdout
 
 
-def ensure_repo(repo: Path) -> None:
-    if (repo / ".git").exists():
+def ensure_repo(repo: pathlib.Path) -> None:
+    """Create the repository, with its README and first commit, if it is new."""
+    if (repo / '.git').exists():
         return
     repo.mkdir(parents=True, exist_ok=True)
-    run(["git", "init", "-q", "-b", "main"], repo)
-    run(["git", "config", "user.name", AUTHOR_NAME], repo)
-    run(["git", "config", "user.email", AUTHOR_EMAIL], repo)
-    (repo / "README.md").write_text(REPO_README)
-    run(["git", "add", "README.md"], repo)
-    commit(repo, "Initial commit", date(1970, 1, 1))
+    run(['git', 'init', '-q', '-b', 'main'], repo)
+    run(['git', 'config', 'user.name', AUTHOR_NAME], repo)
+    run(['git', 'config', 'user.email', AUTHOR_EMAIL], repo)
+    (repo / 'README.md').write_text(REPO_README)
+    run(['git', 'add', 'README.md'], repo)
+    commit(repo, 'Initial commit', datetime.date(1970, 1, 1))
 
 
-def commit(repo: Path, message: str, when: date) -> None:
+def commit(repo: pathlib.Path, message: str, when: datetime.date) -> None:
+    """Commit the staged changes, dated *when* as both author and committer."""
     import os
 
-    stamp = f"{max(when, EPOCH).isoformat()}T12:00:00+12:00"
+    stamp = f'{max(when, EPOCH).isoformat()}T12:00:00+12:00'
     env = dict(os.environ)
     env.update(
         GIT_AUTHOR_DATE=stamp,
@@ -72,77 +76,73 @@ def commit(repo: Path, message: str, when: date) -> None:
         GIT_COMMITTER_NAME=AUTHOR_NAME,
         GIT_COMMITTER_EMAIL=AUTHOR_EMAIL,
     )
-    run(["git", "commit", "-q", "--no-gpg-sign", "-m", message], repo, env)
+    run(['git', 'commit', '-q', '--no-gpg-sign', '-m', message], repo, env)
 
 
 def commit_message(document: render.Document, version: str, first: bool) -> str:
     """Describe a version by the amendments that came into force on its date."""
     when = version_date(version)
-    lines = [f"{document.title}: version as at {version}"]
+    lines = [f'{document.title}: version as at {version}']
     if first:
-        lines += ["", "First version available from the NZ Legislation website."]
+        lines += ['', 'First version available from the NZ Legislation website.']
 
     todays = [a for a in document.amendments if a.when == when]
-    acts = list(OrderedDict.fromkeys(a.amending_act for a in todays if a.amending_act))
+    acts = list(collections.OrderedDict.fromkeys(a.amending_act for a in todays if a.amending_act))
     if acts:
-        lines += ["", "Amendments in force from this date:", ""]
-        lines += [f"- {act}" for act in acts]
+        lines += ['', 'Amendments in force from this date:', '']
+        lines += [f'- {act}' for act in acts]
 
     changes = list(
-        OrderedDict.fromkeys(
-            f"{a.provision}: {a.operation}"
-            for a in todays
-            if a.provision and a.operation
+        collections.OrderedDict.fromkeys(
+            f'{a.provision}: {a.operation}' for a in todays if a.provision and a.operation
         )
     )
     if changes:
-        lines += ["", "Provisions affected:", ""]
-        lines += [f"- {change}" for change in changes[:40]]
+        lines += ['', 'Provisions affected:', '']
+        lines += [f'- {change}' for change in changes[:40]]
         if len(changes) > 40:
-            lines.append(f"- ... and {len(changes) - 40} more")
+            lines.append(f'- ... and {len(changes) - 40} more')
 
-    lines += ["", f"Version-Date: {when.isoformat()}"]
+    lines += ['', f'Version-Date: {when.isoformat()}']
     if when < EPOCH:
         lines.append(
-            "Note: git cannot date a commit before 1970, so the commit date is "
-            "the epoch; Version-Date above is the real one."
+            'Note: git cannot date a commit before 1970, so the commit date is '
+            'the epoch; Version-Date above is the real one.'
         )
-    lines += [f"Source: {fetch.BASE}{document.source_path}"]
-    return "\n".join(lines) + "\n"
+    lines += [f'Source: {fetch.BASE}{document.source_path}']
+    return '\n'.join(lines) + '\n'
 
 
-_SOURCE = re.compile(r"^Source: \S+(/act/\S+)$", re.MULTILINE)
+_SOURCE = re.compile(r'^Source: \S+(/act/\S+)$', re.MULTILINE)
 
 
-def committed_versions(repo: Path, ref: fetch.ActRef) -> set[str]:
+def committed_versions(repo: pathlib.Path, ref: fetch.ActRef) -> set[str]:
     """Version ids this repo already has, read back out of the commit messages.
 
     Lets a nightly run add only what is new instead of rebuilding history.
     """
-    log = run(["git", "log", "--format=%B"], repo)
-    prefix = f"{ref.path}/"
+    log = run(['git', 'log', '--format=%B'], repo)
+    prefix = f'{ref.path}/'
     return {
-        match[1][len(prefix):]
-        for match in _SOURCE.finditer(log)
-        if match[1].startswith(prefix)
+        match[1][len(prefix) :] for match in _SOURCE.finditer(log) if match[1].startswith(prefix)
     }
 
 
-def write_document(target: Path, document: render.Document) -> None:
+def write_document(target: pathlib.Path, document: render.Document) -> None:
     """Replace *target* with this version's files, so deletions show as deletions."""
     if target.exists():
         shutil.rmtree(target)
     for name, text in document.files.items():
         path = target / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8", newline="\n")
+        path.write_text(text, encoding='utf-8', newline='\n')
 
 
 def build_act(
     ref: fetch.ActRef,
-    repo: Path,
+    repo: pathlib.Path,
     *,
-    cache: Path = fetch.DEFAULT_CACHE,
+    cache: pathlib.Path = fetch.DEFAULT_CACHE,
     limit: int | None = None,
     since: str | None = None,
     refresh: bool = False,
@@ -163,14 +163,12 @@ def build_act(
         dates = [d for d in dates if d >= since]
     if limit:
         dates = dates[-limit:]
-    log(f"{ref}: {len(dates)} versions ({dates[0]} to {dates[-1]})")
+    log(f'{ref}: {len(dates)} versions ({dates[0]} to {dates[-1]})')
 
     # The Act's directory is named for its *current* title, so that a renamed
     # Act keeps one continuous history rather than splitting in two.
-    slug = render.slugify(
-        render.render(fetch.version_xml(ref, dates[-1], cache=cache)).title
-    )
-    target = repo / "acts" / slug
+    slug = render.slugify(render.render(fetch.version_xml(ref, dates[-1], cache=cache)).title)
+    target = repo / 'acts' / slug
 
     committed = 0
     for index, version in enumerate(dates):
@@ -179,16 +177,16 @@ def build_act(
         try:
             xml = fetch.version_xml(ref, version, cache=cache, refresh=refresh)
             document = render.render(xml)
-        except Exception as error:  # noqa: BLE001 - one bad version shouldn't stop the run
-            log(f"  {version}: skipped ({type(error).__name__}: {error})")
+        except Exception as error:  # one bad version shouldn't stop the run
+            log(f'  {version}: skipped ({type(error).__name__}: {error})')
             continue
-        document.source_path = f"{ref.path}/{version}"
+        document.source_path = f'{ref.path}/{version}'
         write_document(target, document)
-        run(["git", "add", "-A", "--", str(target.relative_to(repo))], repo)
-        if not run(["git", "diff", "--cached", "--name-only"], repo).strip():
-            log(f"  {version}: no textual change, skipped")
+        run(['git', 'add', '-A', '--', str(target.relative_to(repo))], repo)
+        if not run(['git', 'diff', '--cached', '--name-only'], repo).strip():
+            log(f'  {version}: no textual change, skipped')
             continue
         commit(repo, commit_message(document, version, index == 0), version_date(version))
         committed += 1
-        log(f"  {version}: committed")
+        log(f'  {version}: committed')
     return committed

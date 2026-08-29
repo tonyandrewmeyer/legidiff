@@ -12,9 +12,10 @@ the sitemap instead: that carries a `lastmod` per Act, and only the Acts whose
 than a source of truth, so `--sweep` ignores it and checks everything.
 """
 
+import datetime
 import json
-from datetime import UTC, datetime
-from pathlib import Path
+import pathlib
+import typing
 
 from . import build, fetch
 
@@ -24,84 +25,88 @@ SAVE_EVERY = 10
 class State:
     """What has been built, kept on disk so a run can be resumed."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: pathlib.Path) -> None:
         self.path = path
         self.acts: dict[str, dict] = {}
         if path.exists():
-            self.acts = json.loads(path.read_text()).get("acts", {})
+            self.acts = json.loads(path.read_text()).get('acts', {})
 
     def save(self) -> None:
+        """Write the state to disk."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps({"acts": self.acts}, indent=1, sort_keys=True))
+        self.path.write_text(json.dumps({'acts': self.acts}, indent=1, sort_keys=True))
 
     def record(self, ref: fetch.ActRef, **fields) -> None:
+        """Store the outcome of looking at one Act, stamped with the time."""
         self.acts[str(ref)] = dict(
-            fields, checked=datetime.now(UTC).isoformat(timespec="seconds")
+            fields, checked=datetime.datetime.now(datetime.UTC).isoformat(timespec='seconds')
         )
 
     def done(self, ref: fetch.ActRef) -> bool:
-        return self.acts.get(str(ref), {}).get("status") == "done"
+        """Report whether this Act has been built."""
+        return self.acts.get(str(ref), {}).get('status') == 'done'
 
     def stale(self, ref: fetch.ActRef, lastmod: str | None) -> bool:
         """Is this Act unbuilt, or has its page changed since we last looked?"""
         record = self.acts.get(str(ref))
-        if record is None or record.get("status") != "done":
+        if record is None or record.get('status') != 'done':
             return True
-        return record.get("lastmod") != lastmod
+        return record.get('lastmod') != lastmod
 
     @property
     def failures(self) -> dict[str, dict]:
-        return {k: v for k, v in self.acts.items() if v.get("status") == "failed"}
+        """The Acts whose last attempt raised, keyed by reference."""
+        return {k: v for k, v in self.acts.items() if v.get('status') == 'failed'}
 
 
 def build_corpus(
-    repo: Path,
+    repo: pathlib.Path,
     *,
-    kinds: tuple[str, ...] = ("public",),
-    cache: Path = fetch.DEFAULT_CACHE,
-    state_path: Path | None = None,
+    kinds: tuple[str, ...] = ('public',),
+    cache: pathlib.Path = fetch.DEFAULT_CACHE,
+    state_path: pathlib.Path | None = None,
     limit: int | None = None,
     recheck: bool = False,
     log=lambda message: print(message, flush=True),
 ) -> State:
-    state = State(state_path or cache / "corpus.json")
+    """Build every Act of the given kinds, skipping the ones already done."""
+    state = State(state_path or cache / 'corpus.json')
     lastmods = fetch.act_lastmods(cache=cache)
     acts = [ref for ref in sorted_acts(lastmods) if ref.kind in kinds]
     todo = acts if recheck else [ref for ref in acts if not state.done(ref)]
     if limit:
         todo = todo[:limit]
-    log(f"{len(acts)} Acts in scope, {len(todo)} to do")
+    log(f'{len(acts)} Acts in scope, {len(todo)} to do')
 
     commits = 0
     for index, ref in enumerate(todo, 1):
         try:
             added = build.build_act(ref, repo, cache=cache, log=lambda message: None)
             commits += added
-            state.record(
-                ref, status="done", commits_added=added, lastmod=lastmods.get(ref)
-            )
-            log(f"[{index}/{len(todo)}] {ref}: {added} new commits")
-        except Exception as error:  # noqa: BLE001 - one bad Act must not stop the run
-            state.record(ref, status="failed", error=f"{type(error).__name__}: {error}")
-            log(f"[{index}/{len(todo)}] {ref}: FAILED {type(error).__name__}: {error}")
+            state.record(ref, status='done', commits_added=added, lastmod=lastmods.get(ref))
+            log(f'[{index}/{len(todo)}] {ref}: {added} new commits')
+        except Exception as error:  # one bad Act must not stop the run
+            state.record(ref, status='failed', error=f'{type(error).__name__}: {error}')
+            log(f'[{index}/{len(todo)}] {ref}: FAILED {type(error).__name__}: {error}')
         if index % SAVE_EVERY == 0:
             state.save()
     state.save()
 
-    log(f"{commits} commits added; {len(state.failures)} Acts failed")
+    log(f'{commits} commits added; {len(state.failures)} Acts failed')
     return state
 
 
-def sorted_acts(refs) -> list[fetch.ActRef]:
+def sorted_acts(refs: typing.Iterable[fetch.ActRef]) -> list[fetch.ActRef]:
+    """The Acts in the site's own order: kind, then year, then number."""
     return sorted(refs, key=lambda r: (r.kind, r.year, int(r.number)))
 
 
 def update_corpus(
-    repo: Path,
+    repo: pathlib.Path,
     *,
-    kinds: tuple[str, ...] = ("public",),
-    cache: Path = fetch.DEFAULT_CACHE,
-    state_path: Path | None = None,
+    kinds: tuple[str, ...] = ('public',),
+    cache: pathlib.Path = fetch.DEFAULT_CACHE,
+    state_path: pathlib.Path | None = None,
     limit: int | None = None,
     sweep: bool = False,
     log=lambda message: print(message, flush=True),
@@ -112,13 +117,13 @@ def update_corpus(
     changed since we last built it. New Acts are included too, since an Act
     we've never seen has no recorded `lastmod` to match.
     """
-    state = State(state_path or cache / "corpus.json")
+    state = State(state_path or cache / 'corpus.json')
     lastmods = fetch.act_lastmods(cache=cache, refresh=True)
     acts = [ref for ref in sorted_acts(lastmods) if ref.kind in kinds]
     todo = acts if sweep else [ref for ref in acts if state.stale(ref, lastmods[ref])]
     if limit:
         todo = todo[:limit]
-    log(f"{len(acts)} Acts in scope, {len(todo)} changed since the last run")
+    log(f'{len(acts)} Acts in scope, {len(todo)} changed since the last run')
 
     commits = 0
     changed: list[str] = []
@@ -128,19 +133,17 @@ def update_corpus(
                 ref, repo, cache=cache, refresh_listing=True, log=lambda message: None
             )
             commits += added
-            state.record(
-                ref, status="done", commits_added=added, lastmod=lastmods.get(ref)
-            )
+            state.record(ref, status='done', commits_added=added, lastmod=lastmods.get(ref))
             if added:
                 changed.append(str(ref))
-            log(f"[{index}/{len(todo)}] {ref}: {added} new commits")
-        except Exception as error:  # noqa: BLE001 - one bad Act must not stop the run
+            log(f'[{index}/{len(todo)}] {ref}: {added} new commits')
+        except Exception as error:  # one bad Act must not stop the run
             # No lastmod is recorded for a failure, so the next run retries it.
-            state.record(ref, status="failed", error=f"{type(error).__name__}: {error}")
-            log(f"[{index}/{len(todo)}] {ref}: FAILED {type(error).__name__}: {error}")
+            state.record(ref, status='failed', error=f'{type(error).__name__}: {error}')
+            log(f'[{index}/{len(todo)}] {ref}: FAILED {type(error).__name__}: {error}')
         if index % SAVE_EVERY == 0:
             state.save()
     state.save()
 
-    log(f"{commits} commits added across {len(changed)} Acts; {len(state.failures)} failed")
+    log(f'{commits} commits added across {len(changed)} Acts; {len(state.failures)} failed')
     return state

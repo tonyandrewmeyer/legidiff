@@ -1,0 +1,45 @@
+# Routine version-update sweeps only. CVE patches come from the repo-level
+# "Dependabot security updates" toggle, which is event-driven and doesn't
+# honour the schedule below.
+#
+# Canonical shape for Charm Tech repos, cut down to what this repo has: the
+# workflows (pinned to hashes, so something has to bump them) and the lint
+# group in pyproject.toml. There are no runtime dependencies to update.
+version: 2
+
+updates:
+  # GitHub Actions: routine lane (monthly, single grouped PR).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+    open-pull-requests-limit: 100
+    commit-message:
+      prefix: "chore"
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Python: linters and workflow checkers only, so majors can ride along.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+    open-pull-requests-limit: 100
+    commit-message:
+      prefix: "chore"
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      dev-tooling:
+        patterns:
+          - "ruff"
+          - "zizmor"

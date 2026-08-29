@@ -5,7 +5,7 @@
 # datacentre IP with a WAF challenge, so until legidiff reads from the API
 # the update has to run from here.
 #
-#   15 7 * * * /home/tameyer/non-canonical/legidiff/scripts/nightly-update.sh
+#   15 7 * * * /path/to/legidiff/scripts/nightly-update.sh
 #
 # Pushing relies on the gh credential helper in ~/.gitconfig, which works
 # without a terminal.
@@ -28,7 +28,12 @@ if ! flock -n 9; then
 fi
 
 cd "$repo_dir"
-"$HOME/.local/bin/python3.14" -m legidiff update --repo "$target"
+# Cron's PATH is minimal, and the system python3 may be older than 3.14.
+python=python3
+if [ -x "$HOME/.local/bin/python3.14" ]; then
+    python="$HOME/.local/bin/python3.14"
+fi
+"$python" -m legidiff update --repo "$target"
 
 if [ -n "$(git -C "$target" log --oneline '@{u}..HEAD')" ]; then
     git -C "$target" log --oneline '@{u}..HEAD' | head -50

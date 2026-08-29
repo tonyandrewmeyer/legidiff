@@ -29,6 +29,8 @@ on:
         type: string
         default: ""
 
+permissions: {}
+
 concurrency:
   group: update
   cancel-in-progress: false
@@ -45,9 +47,11 @@ jobs:
     # A sweep asks 14,591 Acts at one request a second.
     timeout-minutes: 350
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
 
@@ -70,11 +74,20 @@ jobs:
           fi
 
       - name: Update
+        env:
+          SWEEP: ${{ inputs.sweep }}
+          LIMIT: ${{ inputs.limit }}
         run: |
-          python3 -m legidiff update --repo out/nz-acts \
-            ${{ inputs.sweep && '--sweep' || '' }} \
-            ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }} \
-            2>&1 | tee update.log
+          # The default shell is bash -e, so these are `if` blocks rather
+          # than `&&` chains, which would fail the step when the test fails.
+          args=()
+          if [ "$SWEEP" = "true" ]; then
+            args+=(--sweep)
+          fi
+          if [ -n "$LIMIT" ]; then
+            args+=(--limit "$LIMIT")
+          fi
+          python3 -m legidiff update --repo out/nz-acts "${args[@]}" 2>&1 | tee update.log
 
       - name: Push new commits
         run: |
@@ -105,7 +118,7 @@ jobs:
         if: always()
         run: python3 -m legidiff corpus --failures || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: update-log
