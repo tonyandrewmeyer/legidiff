@@ -70,8 +70,8 @@ the grounds that ~60,000 files gives you precise diffs but no context and
 slower git. That is a fair criticism and I do not think they are wrong about
 the trade-off, I just weighted it differently.
 
-[**Legalize**][legalize] (Enrique Lopez, 2026) is the most ambitious of the
-lot: the same idea across 31-odd jurisdictions, one repo each, with a
+[**Legalize**][legalize] (Enrique López, 2026) is the most ambitious of the
+lot: the same idea across 31 countries, one repo each, with a
 published spec and a conformance checker. There is no New Zealand repo in it,
 which seems like a gap someone should fill.
 
