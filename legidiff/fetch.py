@@ -7,8 +7,6 @@ stay on the public paths and behave ourselves: one request a second, a real
 User-Agent, and every response cached so that a rebuild costs nothing.
 """
 
-from __future__ import annotations
-
 import gzip
 import re
 import time

@@ -1,7 +1,5 @@
 """Build the git repository: one commit per published version of an Act."""
 
-from __future__ import annotations
-
 import re
 import shutil
 import subprocess

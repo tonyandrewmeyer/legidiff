@@ -12,7 +12,7 @@ git -C out/nz-acts blame acts/crimes-act-1961/sections/0002-interpretation.md
 git -C out/nz-acts log -p --since=2020-01-01 acts/crimes-act-1961
 ```
 
-No dependencies beyond Python 3.11+ and git.
+No dependencies beyond Python 3.14+ and git.
 
 The output of a full run is at
 <https://github.com/tonyandrewmeyer/nz-acts>: 28,209 commits across all 14,591

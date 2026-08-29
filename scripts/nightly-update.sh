@@ -28,7 +28,7 @@ if ! flock -n 9; then
 fi
 
 cd "$repo_dir"
-/usr/bin/python3 -m legidiff update --repo "$target"
+"$HOME/.local/bin/python3.14" -m legidiff update --repo "$target"
 
 if [ -n "$(git -C "$target" log --oneline '@{u}..HEAD')" ]; then
     git -C "$target" log --oneline '@{u}..HEAD' | head -50

@@ -12,8 +12,6 @@ to keep unrelated versions byte-identical:
   versions; including them would make every file differ in every version.
 """
 
-from __future__ import annotations
-
 import collections
 import re
 import unicodedata

@@ -12,10 +12,8 @@ the sitemap instead: that carries a `lastmod` per Act, and only the Acts whose
 than a source of truth, so `--sweep` ignores it and checks everything.
 """
 
-from __future__ import annotations
-
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from . import build, fetch
@@ -38,7 +36,7 @@ class State:
 
     def record(self, ref: fetch.ActRef, **fields) -> None:
         self.acts[str(ref)] = dict(
-            fields, checked=datetime.now(timezone.utc).isoformat(timespec="seconds")
+            fields, checked=datetime.now(UTC).isoformat(timespec="seconds")
         )
 
     def done(self, ref: fetch.ActRef) -> bool:
