@@ -16,23 +16,28 @@ EPOCH = datetime.date(1970, 1, 1)
 AUTHOR_NAME = 'New Zealand Parliamentary Counsel Office'
 AUTHOR_EMAIL = 'noreply@pco.govt.nz'
 
-REPO_README = """# NZ legislation, as a git history
-
-Each commit is one published version of an Act, taken from the XML that the
-Parliamentary Counsel Office publishes at <https://www.legislation.govt.nz>,
-rendered to markdown, and committed with the date that version took effect.
-
-So:
-
-    git log --oneline acts/crimes-act-1961/sections/0167-murder-defined.md
-    git blame acts/crimes-act-1961/sections/0002-interpretation.md
-    git log -p --since=2020-01-01 acts/crimes-act-1961
-
-This repository is generated, so don't commit to it by hand: it gets rebuilt.
-There's no copyright in New Zealand legislation (section 27 of the Copyright
-Act 1994), but this rendering is unofficial, and the PDFs on the official site
-remain the authoritative version.
-"""
+# Soft wrapped, so the paragraphs are joined here rather than in the file.
+REPO_README = (
+    '# NZ legislation, as a git history\n'
+    '\n'
+    'Each commit is one published version of an Act, taken from the XML that '
+    'the Parliamentary Counsel Office publishes at '
+    '<https://www.legislation.govt.nz>, rendered to Markdown, and committed '
+    'with the date that version took effect.\n'
+    '\n'
+    'So:\n'
+    '\n'
+    '    git log --oneline acts/crimes-act-1961/sections/0167-murder-defined.md\n'
+    '    git blame acts/crimes-act-1961/sections/0002-interpretation.md\n'
+    '    git log -p --since=2020-01-01 acts/crimes-act-1961\n'
+    '\n'
+    "This repository is generated, so don't commit to it by hand: it gets "
+    "rebuilt. There's no copyright in New Zealand legislation (section 27 of "
+    'the Copyright Act 1994), but this rendering is unofficial, and the PDFs '
+    'on the official site remain the authoritative version.\n'
+    '\n'
+    'Built by [legidiff](https://github.com/tonyandrewmeyer/legidiff).\n'
+)
 
 
 def version_date(version: str) -> datetime.date:

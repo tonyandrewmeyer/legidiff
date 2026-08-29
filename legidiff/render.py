@@ -1,4 +1,4 @@
-"""Turn a PCO Act XML document into a tree of markdown files.
+"""Turn a PCO Act XML document into a tree of Markdown files.
 
 The whole point of the exercise is diff quality, so the rendering rules exist
 to keep unrelated versions byte-identical:
@@ -99,7 +99,7 @@ def sentences(text: str) -> list[str]:
 
 
 def inline(element: ET.Element) -> str:
-    """Flatten an element's mixed content to markdown, ids and hrefs discarded."""
+    """Flatten an element's mixed content to Markdown, ids and hrefs discarded."""
     out: list[str] = []
     if element.tag == 'field':
         return '______'
@@ -158,7 +158,7 @@ def amendments(root: ET.Element) -> list[Amendment]:
 
 
 class Renderer:
-    """Renders block-level XML into markdown lines."""
+    """Renders block-level XML into Markdown lines."""
 
     def __init__(self) -> None:
         self.lines: list[str] = []
@@ -316,7 +316,7 @@ class Renderer:
         self.lines.extend(f'> {line}'.rstrip() for line in inner.lines)
 
     def table(self, element: ET.Element, depth: int) -> None:
-        """Write a table as a markdown table."""
+        """Write a table as a Markdown table."""
         rows = [
             [inline(cell).strip() for cell in row.findall('entry')] for row in element.iter('row')
         ]
