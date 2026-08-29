@@ -75,5 +75,16 @@ class ScrapeTests(unittest.TestCase):
         )
 
 
+class SitemapTests(unittest.TestCase):
+    def test_an_empty_sitemap_is_an_error(self):
+        # A WAF challenge, a redirect to a consent page, a truncated read: all
+        # of them parse to nothing, and none of them mean "no Acts today".
+        original = fetch.fetch
+        fetch.fetch = lambda *args, **kwargs: b""
+        self.addCleanup(lambda: setattr(fetch, "fetch", original))
+        with self.assertRaises(fetch.FetchError):
+            fetch.act_lastmods()
+
+
 if __name__ == "__main__":
     unittest.main()

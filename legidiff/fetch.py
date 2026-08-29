@@ -90,6 +90,16 @@ def _get(url: str) -> bytes:
         try:
             with urllib.request.urlopen(request, timeout=120) as response:
                 body = response.read()
+                if response.headers.get("x-amzn-waf-action"):
+                    # The site is behind AWS WAF, which answers a client it
+                    # does not like with 202 and an empty body rather than an
+                    # error.  Retrying does not help: the challenge wants a
+                    # browser.  Datacentre IPs get this; home connections do
+                    # not.
+                    raise FetchError(
+                        f"blocked by a WAF challenge for {url}; "
+                        "this IP cannot fetch from the site"
+                    )
                 if response.headers.get("Content-Encoding") == "gzip":
                     body = gzip.decompress(body)
                 return body
@@ -227,6 +237,8 @@ def act_lastmods(
     for match in _SITEMAP_ENTRY.finditer(body):
         lastmod = match[2].decode() if match[2] else None
         found[parse_ref(match[1].decode())] = lastmod
+    if not found:
+        raise FetchError(f"no Acts in the sitemap ({len(body)} bytes)")
     return found
 
 
