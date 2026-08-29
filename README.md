@@ -91,6 +91,19 @@ published version's XML is cached forever.
 Only the pages that go stale get re-fetched: which version is current, and
 what versions exist.
 
+### Nightly, from cron
+
+Until then, `scripts/nightly-update.sh` does the same job from a machine with
+a residential IP: run `update`, then push whatever it committed. It takes an
+exclusive lock (a `--sweep` can run for hours, and two runs would fight over
+the same repository) and logs to `~/.local/state/legidiff/update.log`.
+
+```
+15 7 * * * /home/tameyer/non-canonical/legidiff/scripts/nightly-update.sh
+```
+
+Pushing relies on the `gh` credential helper, which works without a terminal.
+
 ### Nightly, on GitHub Actions
 
 `.github/workflows/update.yml` runs `update` against the generated
