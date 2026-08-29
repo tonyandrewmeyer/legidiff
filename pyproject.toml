@@ -10,8 +10,8 @@ legidiff = "legidiff.cli:main"
 
 [dependency-groups]
 lint = [
-    "ruff==0.12.4",
-    "zizmor==1.26.1",
+    "ruff==0.16.4",
+    "zizmor==1.29.0",
 ]
 
 [build-system]
