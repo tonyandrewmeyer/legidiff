@@ -1,10 +1,10 @@
 """Fetching from legislation.govt.nz, with an on-disk cache and rate limiting.
 
 Everything we need is public: the site serves the PCO's own XML at
-``/act/public/{year}/{no}/en/{date}.xml``.  The official API
-(api.legislation.govt.nz) offers the same data but needs a key, so we stay on
-the public paths and behave ourselves: one request a second, a real
-User-Agent, and every response cached so a rebuild costs nothing.
+``/act/public/{year}/{no}/en/{date}.xml``. The official API
+(api.legislation.govt.nz) offers the same data but needs a key, so for now we
+stay on the public paths and behave ourselves: one request a second, a real
+User-Agent, and every response cached so that a rebuild costs nothing.
 """
 
 from __future__ import annotations
@@ -93,9 +93,9 @@ def _get(url: str) -> bytes:
                 if response.headers.get("x-amzn-waf-action"):
                     # The site is behind AWS WAF, which answers a client it
                     # does not like with 202 and an empty body rather than an
-                    # error.  Retrying does not help: the challenge wants a
-                    # browser.  Datacentre IPs get this; home connections do
-                    # not.
+                    # error. Retrying doesn't help, because the challenge
+                    # wants a browser. Datacentre IPs get this, home
+                    # connections don't.
                     raise FetchError(
                         f"blocked by a WAF challenge for {url}; "
                         "this IP cannot fetch from the site"
@@ -136,7 +136,7 @@ def version_dates(
 ) -> list[str]:
     """Every published version identifier for *ref*, oldest first.
 
-    The site paginates its version list 50 at a time.  The listing is the one
+    The site paginates its version list 50 at a time. The listing is the one
     page that goes stale, so ``--refresh`` re-reads it.
     """
     newest = latest_date(ref, cache=cache, refresh=refresh)
@@ -166,7 +166,7 @@ def version_dates(
 # Acts that were never reprinted (repealed or spent long ago) carry an empty
 # date.as.at, and their only version is dated from when they took effect.
 # The current version's identifier, taken from the download link on the Act's
-# landing page.  The XML's own date attributes are not reliable for this: a
+# landing page. The XML's own date attributes aren't reliable for this: a
 # version that shares its date with another carries a letter suffix
 # (2026-05-06B) that appears nowhere in the XML.
 _LATEST_ID = re.compile(
@@ -210,7 +210,7 @@ def latest_date(
 def version_xml(
     ref: ActRef, date: str, *, cache: Path = DEFAULT_CACHE, refresh: bool = False
 ) -> bytes:
-    """The XML of one version.  Cached forever: published versions never change."""
+    """The XML of one version. Cached forever: a published version never changes."""
     return fetch(
         f"{BASE}{ref.path}/{date}.xml",
         cache / ref.key / f"{date}.xml",
@@ -218,8 +218,8 @@ def version_xml(
     )
 
 
-# The sitemap carries a <lastmod> for each Act's landing page.  It is not the
-# version date -- it moves when the page changes for any reason -- but it does
+# The sitemap carries a <lastmod> for each Act's landing page. It isn't the
+# version date (it moves when the page changes for any reason), but it does
 # move when a new version is published, which makes it a cheap change filter:
 # one request tells us which of 14,000 Acts are worth asking about.
 _SITEMAP_ENTRY = re.compile(

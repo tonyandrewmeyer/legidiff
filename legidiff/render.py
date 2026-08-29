@@ -8,7 +8,7 @@ to keep unrelated versions byte-identical:
   Act around it.
 * One sentence per line, so an amendment that swaps a few words shows up as a
   one-line diff instead of a reflowed paragraph.
-* No element ids and no hrefs.  PCO regenerates those identifiers between
+* No element ids and no hrefs. PCO regenerates those identifiers between
   versions; including them would make every file differ in every version.
 """
 
@@ -55,8 +55,8 @@ ORDINALS = {
 def sort_key(label: str) -> str:
     """A sortable, stable filename stem for a provision label.
 
-    Labels look like ``7``, ``2A``, ``312M``, ``1AA``, or — in older Acts —
-    ``First Schedule``.  Zero-padding the numeric head makes lexical order
+    Labels look like ``7``, ``2A``, ``312M``, ``1AA``, or (in older Acts)
+    ``First Schedule``. Zero-padding the numeric head makes lexical order
     match legislative order.
     """
     label = label.strip()
@@ -66,7 +66,7 @@ def sort_key(label: str) -> str:
     if not label:
         return "9999"
     # Zero-pad every run of digits, so "CW 6" sorts before "CW 52B" and "7"
-    # before "167".  Labels that start with a letter keep that letter first.
+    # before "167". Labels that start with a letter keep that letter first.
     padded = re.sub(r"\d+", lambda m: f"{int(m[0]):04d}", label)
     return slugify(padded) or "9999"
 
@@ -233,7 +233,7 @@ class Renderer:
                 self.blank()
                 self.lines.append(f"> {inline(note).strip()}")
         elif element.find("heading") is not None or element.find("label") is not None:
-            # Any other container that titles itself — parts and nested
+            # Any other container that titles itself - parts and nested
             # schedules inside a schedule, reprint notes, amendment groups.
             self.heading(element, depth)
         else:
@@ -403,11 +403,11 @@ def render(xml: bytes) -> Document:
     def unique(path: str, element: ET.Element, context: str = "") -> str:
         """Keep two provisions with the same number and heading apart.
 
-        Acts do contain them: a repealed provision beside its replacement, or
-        a schedule whose parts each number their clauses from 1.  Prefer a
-        suffix that says which one this is — the part it sits in, or that it
-        is the repealed one — and fall back to document order, which is
-        stable between versions either way.
+        Acts do contain them: a repealed provision beside its replacement,
+        or a schedule whose parts each number their clauses from 1. Prefer a
+        suffix that says which one this is (the part it sits in, or that it's
+        the repealed one), and fall back to document order, which is stable
+        between versions either way.
         """
         if path not in document.files:
             return path
@@ -449,7 +449,7 @@ def render(xml: bytes) -> Document:
         """Walk a body or a schedule's provisions.
 
         Each provision becomes its own file; parts and crossheads become
-        headings in the contents.  Anything else is handed back to the caller
+        headings in the contents. Anything else is handed back to the caller
         to render inline.
         """
         leftovers: list[ET.Element] = []
@@ -472,8 +472,8 @@ def render(xml: bytes) -> Document:
                     context or f"{child.tag}-{sort_key(label)}",
                 )
             elif child.tag == "schedule.group":
-                # A schedule of its own inside a schedule — the forms attached
-                # to a set of rules, typically.  Give each one a file too.
+                # A schedule of its own inside a schedule: the forms
+                # attached to a set of rules, typically. Give each one a file.
                 for nested in child.findall("schedule"):
                     label, heading = titles(nested)
                     sink += ["", f"{'#' * min(level, 6)} Schedule {label}"
@@ -494,10 +494,10 @@ def render(xml: bytes) -> Document:
         return renderer.text().strip()
 
     def add_schedule(schedule: ET.Element) -> None:
-        """One file per schedule, unless it has clauses — then one per clause.
+        """One file per schedule, unless it has clauses, then one per clause.
 
-        Some schedules are books: schedule 2 of the Judicature Act 1908 was the
-        whole High Court Rules.  Splitting them the way sections are split
+        Some schedules are books: schedule 2 of the Judicature Act 1908 was
+        the whole High Court Rules. Splitting them the way sections are split
         keeps an amendment to one rule to a diff of one small file.
         """
         label, heading = titles(schedule)

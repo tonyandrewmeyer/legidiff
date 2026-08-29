@@ -30,9 +30,9 @@ So:
     git blame acts/crimes-act-1961/sections/0002-interpretation.md
     git log -p --since=2020-01-01 acts/crimes-act-1961
 
-This repository is generated.  Do not commit to it by hand — it gets rebuilt.
-The legislation itself is Crown copyright and free of known re-use
-restrictions; this rendering is unofficial, and the PDFs on the official site
+This repository is generated, so don't commit to it by hand: it gets rebuilt.
+There's no copyright in New Zealand legislation (section 27 of the Copyright
+Act 1994), but this rendering is unofficial, and the PDFs on the official site
 remain the authoritative version.
 """
 
@@ -151,11 +151,11 @@ def build_act(
     refresh_listing: bool = False,
     log=lambda message: print(message, flush=True),
 ) -> int:
-    """Commit whatever versions of *ref* the repo does not already have.
+    """Commit whatever versions of *ref* the repo doesn't already have.
 
-    ``refresh`` ignores the cache entirely; ``refresh_listing`` re-reads only
-    the pages that go stale -- which version is current, and what versions
-    exist -- and is what a nightly update wants, since a published version's
+    ``refresh`` ignores the cache entirely. ``refresh_listing`` re-reads only
+    the pages that go stale (which version is current, and what versions
+    exist), which is what a nightly update wants, since a published version's
     XML never changes.
     """
     ensure_repo(repo)

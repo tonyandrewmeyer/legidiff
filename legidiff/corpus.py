@@ -1,15 +1,15 @@
 """Build the whole corpus: every Act on the site, resumably.
 
-`build_act` is already incremental for one Act — it reads the versions it has
-already committed back out of the log.  This adds the outer loop: which Acts
-exist, which have been done, and what went wrong with the ones that didn't, so
-a run that dies at Act 9,000 picks up where it stopped.
+`build_act` is already incremental for one Act, since it reads the versions
+it has already committed back out of the log. This adds the outer loop: which
+Acts exist, which have been done, and what went wrong with the ones that
+didn't, so that a run which dies at Act 9,000 picks up where it stopped.
 
-`update_corpus` is the same loop run nightly.  Asking all 14,000 Acts what
+`update_corpus` is the same loop run nightly. Asking all 14,000 Acts what
 their current version is costs four hours at one request a second, so it asks
-the sitemap instead: it carries a `lastmod` per Act, and only the Acts whose
-`lastmod` has moved since the last run are worth a look.  That is a filter and
-not a source of truth, so `--sweep` ignores it and checks everything.
+the sitemap instead: that carries a `lastmod` per Act, and only the Acts whose
+`lastmod` has moved since the last run are worth a look. It's a filter rather
+than a source of truth, so `--sweep` ignores it and checks everything.
 """
 
 from __future__ import annotations
@@ -111,8 +111,8 @@ def update_corpus(
     """Commit whatever has been published since the last run.
 
     One request for the sitemap, then a look at each Act whose page has
-    changed since we last built it -- new Acts included, since an Act we have
-    never seen has no recorded `lastmod` to match.
+    changed since we last built it. New Acts are included too, since an Act
+    we've never seen has no recorded `lastmod` to match.
     """
     state = State(state_path or cache / "corpus.json")
     lastmods = fetch.act_lastmods(cache=cache, refresh=True)
