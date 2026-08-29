@@ -11,7 +11,9 @@ ACTS = [
 ]
 
 
-class CorpusTests(unittest.TestCase):
+class FakeSite(unittest.TestCase):
+    """A site of three Acts, and a build_act that records what it was asked."""
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
@@ -19,20 +21,23 @@ class CorpusTests(unittest.TestCase):
         self.attempts = []
         self.fail_on = set()
 
-        original = (corpus.fetch.all_acts, corpus.build.build_act)
+        self.lastmods = {ref: "2026-08-01" for ref in ACTS}
+        self.commits = 2
 
-        def all_acts(**kwargs):
-            return ACTS
+        original = (corpus.fetch.act_lastmods, corpus.build.build_act)
+
+        def act_lastmods(**kwargs):
+            return dict(self.lastmods)
 
         def build_act(ref, repo, **kwargs):
             self.attempts.append(str(ref))
             if str(ref) in self.fail_on:
                 raise RuntimeError("boom")
-            return 2
+            return self.commits
 
-        corpus.fetch.all_acts, corpus.build.build_act = all_acts, build_act
+        corpus.fetch.act_lastmods, corpus.build.build_act = act_lastmods, build_act
         self.addCleanup(
-            lambda: setattr(corpus.fetch, "all_acts", original[0])
+            lambda: setattr(corpus.fetch, "act_lastmods", original[0])
             or setattr(corpus.build, "build_act", original[1])
         )
 
@@ -43,6 +48,17 @@ class CorpusTests(unittest.TestCase):
             log=lambda message: None,
             **kwargs,
         )
+
+    def run_update(self, **kwargs):
+        return corpus.update_corpus(
+            Path(self.directory.name) / "repo",
+            cache=self.cache,
+            log=lambda message: None,
+            **kwargs,
+        )
+
+class CorpusTests(FakeSite):
+    """The full build: everything not already done."""
 
     def test_only_the_requested_kinds(self):
         self.run_corpus()
@@ -83,6 +99,53 @@ class CorpusTests(unittest.TestCase):
         state = corpus.State(self.cache / "corpus.json")
         self.assertTrue(state.done(ACTS[0]))
         self.assertEqual(state.acts["act/public/1961/43"]["commits_added"], 2)
+
+
+class UpdateTests(FakeSite):
+    """The nightly loop: only Acts whose sitemap entry has moved."""
+
+    def test_an_unchanged_act_is_not_asked_about(self):
+        self.run_corpus()
+        self.attempts.clear()
+        self.run_update()
+        self.assertEqual(self.attempts, [])
+
+    def test_a_changed_act_is_rebuilt(self):
+        self.run_corpus()
+        self.attempts.clear()
+        self.lastmods[ACTS[0]] = "2026-08-29"
+        self.run_update()
+        self.assertEqual(self.attempts, ["act/public/1961/43"])
+
+    def test_an_act_that_is_new_to_the_sitemap_is_built(self):
+        self.run_corpus()
+        self.attempts.clear()
+        new = fetch.ActRef("public", "2026", "1")
+        self.lastmods[new] = "2026-08-29"
+        self.run_update()
+        self.assertEqual(self.attempts, ["act/public/2026/1"])
+
+    def test_a_failure_is_retried_next_run(self):
+        self.fail_on = {"act/public/1961/43"}
+        self.run_update()
+        self.attempts.clear()
+        self.fail_on.clear()
+        state = self.run_update()
+        self.assertEqual(self.attempts, ["act/public/1961/43"])
+        self.assertEqual(state.failures, {})
+
+    def test_sweep_ignores_the_filter(self):
+        self.run_corpus()
+        self.attempts.clear()
+        self.run_update(sweep=True)
+        self.assertEqual(self.attempts, ["act/public/1961/43", "act/public/1993/105"])
+
+    def test_the_listing_is_refreshed_but_the_cached_xml_is_not(self):
+        seen = []
+        corpus.build.build_act = lambda ref, repo, **kwargs: seen.append(kwargs) or 0
+        self.run_update()
+        self.assertTrue(all(kwargs["refresh_listing"] for kwargs in seen))
+        self.assertTrue(all(not kwargs.get("refresh") for kwargs in seen))
 
 
 if __name__ == "__main__":

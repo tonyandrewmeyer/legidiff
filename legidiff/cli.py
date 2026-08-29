@@ -49,6 +49,22 @@ def main(argv: list[str] | None = None) -> int:
         "--failures", action="store_true", help="list what failed and stop"
     )
 
+    update_parser = subparsers.add_parser(
+        "update", help="commit whatever has been published since the last run"
+    )
+    update_parser.add_argument("--repo", type=Path, default=Path("out/nz-acts"))
+    update_parser.add_argument(
+        "--kinds",
+        default="public",
+        help="comma-separated: public,local,private,imperial,provincial (or all)",
+    )
+    update_parser.add_argument("--limit", type=int, help="stop after N Acts")
+    update_parser.add_argument(
+        "--sweep",
+        action="store_true",
+        help="ask every Act, ignoring the sitemap's lastmod filter",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "acts":
@@ -79,26 +95,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(name)
         return 0
 
-    if args.command == "corpus":
-        kinds = ("public", "local", "private", "imperial", "provincial")
-        if not args.failures:
-            wanted = kinds if args.kinds == "all" else tuple(args.kinds.split(","))
-            corpus.build_corpus(
-                args.repo,
-                kinds=wanted,
-                cache=args.cache,
-                limit=args.limit,
-                recheck=args.recheck,
-            )
-            return 0
-        state = corpus.State(args.cache / "corpus.json")
-        for name, record in sorted(state.failures.items()):
-            print(f"{name}\t{record['error']}")
-        print(f"{len(state.failures)} failed of {len(state.acts)} attempted", file=sys.stderr)
-        return 0
-
-    if args.command == "corpus":
-        if args.failures:
+    if args.command in ("corpus", "update"):
+        if args.command == "corpus" and args.failures:
             state = corpus.State(args.cache / "corpus.json")
             for name, record in sorted(state.failures.items()):
                 print(f"{name}\t{record['error']}")
@@ -109,13 +107,22 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         all_kinds = ("public", "local", "private", "imperial", "provincial")
         kinds = all_kinds if args.kinds == "all" else tuple(args.kinds.split(","))
-        corpus.build_corpus(
-            args.repo,
-            kinds=kinds,
-            cache=args.cache,
-            limit=args.limit,
-            recheck=args.recheck,
-        )
+        if args.command == "update":
+            corpus.update_corpus(
+                args.repo,
+                kinds=kinds,
+                cache=args.cache,
+                limit=args.limit,
+                sweep=args.sweep,
+            )
+        else:
+            corpus.build_corpus(
+                args.repo,
+                kinds=kinds,
+                cache=args.cache,
+                limit=args.limit,
+                recheck=args.recheck,
+            )
         return 0
 
     if args.command == "build":

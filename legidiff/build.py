@@ -148,10 +148,18 @@ def build_act(
     limit: int | None = None,
     since: str | None = None,
     refresh: bool = False,
+    refresh_listing: bool = False,
     log=lambda message: print(message, flush=True),
 ) -> int:
+    """Commit whatever versions of *ref* the repo does not already have.
+
+    ``refresh`` ignores the cache entirely; ``refresh_listing`` re-reads only
+    the pages that go stale -- which version is current, and what versions
+    exist -- and is what a nightly update wants, since a published version's
+    XML never changes.
+    """
     ensure_repo(repo)
-    dates = fetch.version_dates(ref, cache=cache, refresh=refresh)
+    dates = fetch.version_dates(ref, cache=cache, refresh=refresh or refresh_listing)
     done = committed_versions(repo, ref)
     if since:
         dates = [d for d in dates if d >= since]

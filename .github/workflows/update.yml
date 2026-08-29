@@ -1,0 +1,109 @@
+# Nightly: commit whatever the PCO published today.
+#
+# The generated repository is not this one -- it lives at ${{ vars.NZ_ACTS_REPO }}
+# (default tonyandrewmeyer/nz-acts), which this workflow clones, adds to and
+# pushes back.  It must already exist and hold the initial corpus: the first
+# 28,000 commits are pushed by hand from a machine that has the cache, not
+# built here.
+#
+# State (which Act was built at which sitemap lastmod) rides along on an
+# orphan `state` branch of that same repository, force-pushed as a single
+# commit each night so it never accumulates history.
+name: update
+
+on:
+  schedule:
+    - cron: "0 19 * * *" # 07:00 NZST / 08:00 NZDT, after the overnight publish
+  workflow_dispatch:
+    inputs:
+      sweep:
+        description: "Ask every Act, ignoring the sitemap lastmod filter (hours)"
+        type: boolean
+        default: false
+      limit:
+        description: "Stop after N Acts"
+        type: string
+        default: ""
+
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+env:
+  TARGET: ${{ vars.NZ_ACTS_REPO || 'tonyandrewmeyer/nz-acts' }}
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    # NZ_ACTS_TOKEN lives in this environment, not in the repository's own
+    # secrets, so a branch policy can keep it to the default branch.
+    environment: nz-acts
+    # A sweep asks 14,591 Acts at one request a second.
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Clone the generated repository
+        env:
+          TOKEN: ${{ secrets.NZ_ACTS_TOKEN }}
+        run: |
+          git clone --no-tags "https://x-access-token:${TOKEN}@github.com/${TARGET}.git" out/nz-acts
+          git -C out/nz-acts log --oneline -1
+
+      - name: Restore the build state
+        run: |
+          mkdir -p cache
+          if git -C out/nz-acts fetch --depth 1 origin state 2>/dev/null; then
+            git -C out/nz-acts show FETCH_HEAD:corpus.json.gz > cache/corpus.json.gz
+            gunzip -f cache/corpus.json.gz
+            python3 -c "import json;print(len(json.load(open('cache/corpus.json'))['acts']), 'Acts in state')"
+          else
+            echo "No state branch yet: this run will ask every Act."
+          fi
+
+      - name: Update
+        run: |
+          python3 -m legidiff update --repo out/nz-acts \
+            ${{ inputs.sweep && '--sweep' || '' }} \
+            ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }} \
+            2>&1 | tee update.log
+
+      - name: Push new commits
+        run: |
+          cd out/nz-acts
+          if [ -z "$(git log --oneline @{u}..HEAD)" ]; then
+            echo "Nothing new to push."
+          else
+            git log --oneline @{u}..HEAD | head -50
+            git push origin HEAD:main
+          fi
+
+      - name: Push the build state
+        if: always()
+        env:
+          TOKEN: ${{ secrets.NZ_ACTS_TOKEN }}
+        run: |
+          [ -f cache/corpus.json ] || exit 0
+          rm -rf state && mkdir state
+          gzip -9 -c cache/corpus.json > state/corpus.json.gz
+          cd state
+          git init -q -b state
+          git add -A
+          git -c user.name=legidiff -c user.email=noreply@legislation.govt.nz \
+            commit -q --no-gpg-sign -m "State as at $(date -u +%FT%TZ)"
+          git push --force "https://x-access-token:${TOKEN}@github.com/${TARGET}.git" state:state
+
+      - name: Report failures
+        if: always()
+        run: python3 -m legidiff corpus --failures || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: update-log
+          path: update.log
+          if-no-files-found: ignore

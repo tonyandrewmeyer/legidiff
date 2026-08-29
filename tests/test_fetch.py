@@ -57,8 +57,22 @@ class ScrapeTests(unittest.TestCase):
             b"<loc>https://www.legislation.govt.nz/act/public/1961/43/en/latest/</loc>"
             b"<loc>https://www.legislation.govt.nz/regulation/public/2020/1/en/latest/</loc>"
         )
-        found = [match[1].decode() for match in fetch._SITEMAP_ACT.finditer(sitemap)]
+        found = [match[1].decode() for match in fetch._SITEMAP_ENTRY.finditer(sitemap)]
         self.assertEqual(found, ["/act/public/1961/43"])
+
+    def test_sitemap_lastmod_is_optional(self):
+        sitemap = (
+            b"<loc>https://www.legislation.govt.nz/act/public/1961/43/en/latest/</loc>"
+            b"<lastmod>2026-08-17</lastmod>"
+            b"<loc>https://www.legislation.govt.nz/act/local/1841/1/en/latest/</loc>"
+        )
+        found = {
+            match[1].decode(): match[2].decode() if match[2] else None
+            for match in fetch._SITEMAP_ENTRY.finditer(sitemap)
+        }
+        self.assertEqual(
+            found, {"/act/public/1961/43": "2026-08-17", "/act/local/1841/1": None}
+        )
 
 
 if __name__ == "__main__":

@@ -41,6 +41,7 @@ a full-corpus run.  This prototype throttles itself to one request a second.
 | `show ACT DATE [--file index.md]` | render one version without committing |
 | `acts` | every Act on the site, from the sitemap |
 | `corpus` | build every Act, resumably |
+| `update` | commit whatever has been published since the last run |
 
 `ACT` is anything containing a reference, so `act/public/1961/43` or a URL
 copied from the browser.  `build` takes `--limit N`, `--since YYYY-MM-DD` and
@@ -59,6 +60,46 @@ bad Act never stops the run.
 python3 -m legidiff corpus --kinds public          # 14,591 Acts, resumable
 python3 -m legidiff corpus --failures              # what did not build
 ```
+
+## Keeping it up to date
+
+```
+python3 -m legidiff update                         # a couple of minutes
+python3 -m legidiff update --sweep                 # ask every Act; hours
+```
+
+Asking all 14,591 Acts what their current version is costs four hours at one
+request a second, which is too much to do nightly for the handful of Acts that
+actually change.  So `update` asks the sitemap instead: it carries a `lastmod`
+per Act, `corpus.json` records the `lastmod` each Act was built at, and only
+the Acts whose page has moved since are worth a look.  A typical night is one
+sitemap request and a few dozen Acts — about two minutes.  An Act that is new
+to the sitemap has no recorded `lastmod`, so it gets built too.
+
+`lastmod` moves whenever the page changes, not only when a version is
+published, so it over-reports rather than under-reports: most of the Acts an
+update looks at turn out to have nothing new.  It is still a filter and not a
+source of truth, though, so `--sweep` ignores it and asks every Act — worth
+running occasionally, and cheap in requests beyond the listing pages, since a
+published version's XML is cached forever.
+
+Only the pages that go stale are re-fetched: which version is current, and
+what versions exist.
+
+### Nightly, on GitHub Actions
+
+`.github/workflows/update.yml` runs `update` at 19:00 UTC (07:00 NZST) against
+the generated repository, which lives in its own repo — `vars.NZ_ACTS_REPO`,
+default `tonyandrewmeyer/nz-acts` — cloned, added to and pushed back.  It
+needs an `nz-acts` environment holding a `NZ_ACTS_TOKEN` secret with push
+rights to that repo.  Build state
+rides on an orphan `state` branch there, force-pushed as a single commit each
+night, so a runner that has no cache at all still knows what it has already
+built.
+
+The initial corpus is *not* built in CI: the first 28,000 commits are pushed
+by hand from a machine that has the cache.  The workflow expects the target
+repository to exist and already hold that history.
 
 ## Tests
 

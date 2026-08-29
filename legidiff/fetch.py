@@ -208,13 +208,29 @@ def version_xml(
     )
 
 
-_SITEMAP_ACT = re.compile(
+# The sitemap carries a <lastmod> for each Act's landing page.  It is not the
+# version date -- it moves when the page changes for any reason -- but it does
+# move when a new version is published, which makes it a cheap change filter:
+# one request tells us which of 14,000 Acts are worth asking about.
+_SITEMAP_ENTRY = re.compile(
     rb"<loc>https://www\.legislation\.govt\.nz(/act/[a-z]+/\d{4}/\d+)/en/latest/</loc>"
+    rb"(?:<lastmod>(\d{4}-\d{2}-\d{2})</lastmod>)?"
 )
 
 
-def all_acts(*, cache: Path = DEFAULT_CACHE, refresh: bool = False) -> list[ActRef]:
-    """Every Act on the site, from its sitemap (~5 MB, one request)."""
+def act_lastmods(
+    *, cache: Path = DEFAULT_CACHE, refresh: bool = False
+) -> dict[ActRef, str | None]:
+    """Every Act on the site and when its page last changed (~5 MB, one request)."""
     body = fetch(f"{BASE}/sitemap.xml", cache / "sitemap.xml", refresh=refresh)
-    refs = {parse_ref(match[1].decode()) for match in _SITEMAP_ACT.finditer(body)}
+    found: dict[ActRef, str | None] = {}
+    for match in _SITEMAP_ENTRY.finditer(body):
+        lastmod = match[2].decode() if match[2] else None
+        found[parse_ref(match[1].decode())] = lastmod
+    return found
+
+
+def all_acts(*, cache: Path = DEFAULT_CACHE, refresh: bool = False) -> list[ActRef]:
+    """Every Act on the site, from its sitemap."""
+    refs = act_lastmods(cache=cache, refresh=refresh)
     return sorted(refs, key=lambda r: (r.kind, r.year, int(r.number)))
