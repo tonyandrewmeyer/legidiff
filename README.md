@@ -18,6 +18,10 @@ The output of a full run is at
 <https://github.com/tonyandrewmeyer/nz-acts>: 28,209 commits across all 14,591
 public Acts.
 
+Plenty of people have put legislation into git before this, several of them
+for New Zealand. [RELATED-WORK.md](RELATED-WORK.md) is where they are, and
+where this came from.
+
 ## Where the text comes from
 
 Not the PDFs. The Parliamentary Counsel Office publishes its own XML for every
